@@ -263,7 +263,7 @@ dataSource 元素使用标准的 JDBC 数据源接口来配置 JDBC 连接对象
 ![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1679800454346-3a81146a-3a62-478a-b7d2-809336693e7a.png#averageHue=%23e9bc89&clientId=u151fe09b-9b75-4&from=paste&height=365&id=u1df7ad23&name=image.png&originHeight=456&originWidth=1077&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=53134&status=done&style=none&taskId=u808e7556-8748-4712-b254-3fe288bb75f&title=&width=861.6)![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1679800657503-06fa61f2-b70b-4659-a815-4ecd1075f872.png#averageHue=%23f0b388&clientId=u151fe09b-9b75-4&from=paste&height=305&id=u34711101&name=image.png&originHeight=381&originWidth=955&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=25519&status=done&style=none&taskId=uac8e5d78-885c-4fca-8d99-f52fc3e9539&title=&width=764)
 
 
- 你可以重写已有的类型处理器或创建你自己的类型处理器来处理不支持的或非标准的类型。 具体做法为：实现 org.apache.ibatis.type.TypeHandler 接口， 或继承一个很便利的类 org.apache.ibatis.type.BaseTypeHandler， 并且可以（可选地）将它映射到一个 JDBC 类型。比如：  
+** 你可以重写已有的类型处理器或创建你自己的类型处理器来处理不支持的或非标准的类型。 具体做法为：实现 org.apache.ibatis.type.TypeHandler 接口，** 或继承一个很便利的类 org.apache.ibatis.type.BaseTypeHandler， 并且可以（可选地）将它映射到一个 JDBC 类型。比如：  
 
 ```java
 // ExampleTypeHandler.java
@@ -297,4 +297,173 @@ public class ExampleTypeHandler extends BaseTypeHandler<String> {
   <typeHandler handler="org.mybatis.example.ExampleTypeHandler"/>
 </typeHandlers>
 ```
- 使用上述的类型处理器将会覆盖已有的处理 Java String 类型的属性以及 VARCHAR 类型的参数和结果的类型处理器。 要注意 MyBatis 不会通过检测数据库元信息来决定使用哪种类型，所以你必须在参数和结果映射中指明字段是 VARCHAR 类型， 以使其能够绑定到正确的类型处理器上。这是因为 MyBatis 直到语句被执行时才清楚数据类型。  
+ 使用上述的类型处理器将会覆盖已有的处理 Java String 类型的属性以及 VARCHAR 类型的参数和结果的类型处理器。 要注意 MyBatis 不会通过检测数据库元信息来决定使用哪种类型，**所以你必须在参数和结果映射中指明字段是 VARCHAR 类型**， 以使其能够绑定到正确的类型处理器上。这是因为 MyBatis 直到语句被执行时才清楚数据类型。  
+
+
+通过类型处理器的泛型，MyBatis 可以得知该类型处理器处理的 Java 类型，不过这种行为可以通过两种方法改变： 
+
+-  在类型处理器的配置元素（typeHandler 元素）上增加一个 javaType 属性（比如：javaType="String"）； 
+-  在类型处理器的类上增加一个 @MappedTypes 注解指定与其关联的 Java 类型列表。 如果在 javaType 属性中也同时指定，则注解上的配置将被忽略。 
+
+可以通过两种方式来指定关联的 JDBC 类型：
+
+-  在类型处理器的配置元素上增加一个 jdbcType 属性（比如：jdbcType="VARCHAR"）； 
+-  在类型处理器的类上增加一个 @MappedJdbcTypes 注解指定与其关联的 JDBC 类型列表。 如果在 jdbcType 属性中也同时指定，则注解上的配置将被忽略。 
+
+
+## 对象工厂（objectFactory）
+ 每次 MyBatis 创建**结果对象的新实例时**，它都会使用一个对象工厂（ObjectFactory）实例来完成实例化工作。 默认的对象工厂需要做的仅仅是实例化目标类，要么通过默认无参构造方法，**要么通过存在的参数映射来调用带有参数的构造方法**。 如果想覆盖对象工厂的默认行为，可以通过创建自己的对象工厂来实现。比如  
+
+
+
+
+## 插件（plugins）
+
+MyBatis 允许你在映射语句执行过程中的某一点进行拦截调用。默认情况下，MyBatis 允许使用插件来拦截的方法调用包括： 
+
+-  **Executor** (update, query, flushStatements, commit, rollback, getTransaction, close, isClosed) 
+-  **ParameterHandler** (getParameterObject, setParameters) 
+-  **ResultSetHandler** (handleResultSets, handleOutputParameters) 
+-  **StatementHandler** (prepare, parameterize, batch, update, query) 
+
+这些类中方法的细节可以通过查看每个方法的签名来发现，或者直接查看 MyBatis 发行包中的源代码。 如果你想做的不仅仅是监控方法的调用，那么你最好相当了解要重写的方法的行为。 因为在试图修改或重写已有方法的行为时，很可能会破坏 MyBatis 的核心模块。 这些都是更底层的类和方法，所以使用插件的时候要特别当心。
+通过 MyBatis 提供的强大机制，使用插件是非常简单的，只需实现 Interceptor 接口，并指定想要拦截的方法签名即可。
+
+
+
+# XML 映射器
+ MyBatis 的真正强大在于它的语句映射，这是它的魔力所在。由于它的异常强大，映射器的 XML 文件就显得相对简单。**如果拿它跟具有相同功能的 JDBC 代码进行对比，你会立即发现省掉了将近 95% 的代码。**MyBatis 致力于减少使用成本，让用户能更专注于 SQL 代码。  
+SQL 映射文件只有很少的几个顶级元素（按照应被定义的顺序列出）：
+
+- cache – 该命名空间的缓存配置。 
+- cache-ref – 引用其它命名空间的缓存配置。 
+- resultMap – 描述如何从数据库结果集中加载对象，是最复杂也是最强大的元素。 
+- ~~parameterMap – 老式风格的参数映射。此元素已被废弃，并可能在将来被移除！请使用行内参数映射。文档中不会介绍此元素。 ~~
+- sql – 可被其它语句引用的可重用语句块。 
+- insert – 映射插入语句。 
+- update – 映射更新语句。 
+- delete – 映射删除语句。 
+- select – 映射查询语句。 
+
+
+## select
+查询语句是 MyBatis 中最常用的元素之一——光能把数据存到数据库中价值并不大，还要能重新取出来才有用，多数应用也都是查询比修改要频繁。 MyBatis 的基本原则之一是：在每个插入、更新或删除操作之间，通常会执行多个查询操作。因此，MyBatis 在查询和结果映射做了相当多的改进。一个简单查询的 select 元素是非常简单的。比如： 
+
+```java
+<select id="selectPerson" parameterType="int" resultType="hashmap">
+  SELECT * FROM PERSON WHERE ID = #{id}
+</select>
+```
+这个语句名为 selectPerson，接受一个 int（或 Integer）类型的参数，并返回一个 HashMap 类型的对象，其中的键是列名，值便是结果行中的对应值。 
+注意参数符号：
+#{id}
+这就告诉 MyBatis 创建一个预处理语句（PreparedStatement）参数，在 JDBC 中，这样的一个参数在 SQL 中会由一个“?”来标识，并被传递到一个新的预处理语句中，就像这样： 
+// 近似的 JDBC 代码，非 MyBatis 代码... 
+```java
+String selectPerson = "SELECT * FROM PERSON WHERE ID=?";
+ PreparedStatement ps = conn.prepareStatement(selectPerson);
+ ps.setInt(1,id);
+```
+
+```java
+<select
+  id="selectPerson"
+  parameterType="int"
+  parameterMap="deprecated"
+  resultType="hashmap"
+  resultMap="personResultMap"
+  flushCache="false"
+  useCache="true"
+  timeout="10"
+  fetchSize="256"
+  statementType="PREPARED"
+  resultSetType="FORWARD_ONLY">
+```
+| parameterType |  将会传入这条语句的参数的类全限定名或别名。这个属性是可选的，**因为 MyBatis 可以根据语句中实际传入的参数计算出应该使用的类型处理器（TypeHandler）**，默认值为未设置（unset）。  |
+| --- | --- |
+
+| resultType |  期望从这条语句中返回结果的类全限定名或别名。 注意，如果返回的是集合，那应该设置为集合包含的类型，而不是集合本身的类型。 resultType 和 resultMap 之间只能同时使用一个。  |
+| --- | --- |
+| resultMap |  对外部 resultMap 的命名引用。结果映射是 MyBatis 最强大的特性，如果你对其理解透彻，许多复杂的映射问题都能迎刃而解。 resultType 和 resultMap 之间只能同时使用一个。  |
+
+| flushCache |  将其设置为 true 后，只要语句被调用，都会导致本地缓存和二级缓存被清空，默认值：false。  |
+| --- | --- |
+| useCache |  将其设置为 true 后，将会导致本条语句的结果被二级缓存缓存起来，默认值：对 select 元素为 true。  |
+
+flushCache和useCache
+一级缓存是SqlSession级别的缓存。在操作数据库时需要构造 sqlSession对象，在对象中有一个数据结构（HashMap）用于存储缓存数据。不同的sqlSession之间的缓存数据区域（HashMap）是互相不影响的。
+二级缓存是mapper级别的缓存，多个SqlSession去操作同一个Mapper的sql语句，多个SqlSession可以共用二级缓存，二级缓存是跨SqlSession的。
+![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1680007279198-6498386c-989e-445e-a160-3cb597235990.png#averageHue=%23f5f5f5&clientId=u058e6d00-6f23-4&from=paste&height=331&id=u2acd630f&name=image.png&originHeight=414&originWidth=653&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=87709&status=done&style=none&taskId=u0dd62e27-8ceb-49d7-a168-f5e2e0ae9c6&title=&width=522.4)
+
+ 第一次发起查询用户id为1的用户信息，先去找缓存中是否有1的用户，如果有的话拿去用，如果没有去数据库中查去。得到用户信息放入一级缓存中去。如果SqlSession去执行commit操作（执行插入、删除、更新）的话，清空SqlSession中的一级缓存，这样做就是为了让缓存中的数据保持最新，避免用户读到错误的数据。  
+
+![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1680007318934-5da0b276-a580-4e97-b9ee-efdc350ec733.png#averageHue=%23f5f5f5&clientId=u058e6d00-6f23-4&from=paste&height=333&id=u1be2da92&name=image.png&originHeight=416&originWidth=773&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=101300&status=done&style=none&taskId=u97686f1b-2cb5-45fc-873e-a94c717023c&title=&width=618.4)
+
+首先得开启二级缓存，sqlSession1去查询用户id为1的用户信息，查询到用户信息会将查询数据存储到二级缓存中。
+如果SqlSession3去执行相同 mapper下sql，执行commit提交，清空该 mapper下的二级缓存区域的数据。sqlSession2去查询用户
+id为1的用户信息，去缓存中找是否存在数据，如果存在直接从缓存中取出数据。
+
+MyBatis中开启二级缓存及flushCache与useCache的使用
+
+第一步：Configuration.xml设置二级缓存的总开关，
+```java
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+<settings>
+<!-- 全局映射器启用缓存 -->
+<setting name="cacheEnabled" value="true" />
+<!-- 查询时，关闭关联对象即时加载以提高性能 -->
+<setting name="lazyLoadingEnabled" value="false" />
+<!-- 对于未知的SQL查询，允许返回不同的结果集以达到通用的效果 -->
+<setting name="multipleResultSetsEnabled" value="true" />
+<!-- 允许使用列标签代替列名 -->
+<setting name="useColumnLabel" value="true" />
+<!-- 对于批量更新操作缓存SQL以提高性能  -->
+<setting name="defaultExecutorType" value="REUSE" />
+<!-- 数据库超过25000秒仍未响应则超时 -->
+<setting name="defaultStatementTimeout" value="25000" />
+</settings>
+<mappers>
+<!--<mapper resource="dao/mysql/CtdAuthCommonMapper.xml"/>-->
+</mappers>
+</configuration>
+```
+
+
+第二步：在具体的mapper.xml中开启二级缓存。
+ 在MyBatis的XML文件中可以
+```java
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ctd.cmp.loganalyse.bean.pojo.mapper.CtdBizMetricsMapper">
+<!-- 缓存10分钟 -->
+<cache eviction="FIFO" flushInterval="600000" size="4096" readOnly="true"/>
+
+
+<select id="save" parameterType="XX" flushCache="true" useCache="false"> </select>
+</mapper>
+```
+各个属性意义如下：
+
+- eviction：缓存回收策略 
+   - LRU：最少使用原则，移除最长时间不使用的对象
+   - FIFO：先进先出原则，按照对象进入缓存顺序进行回收
+   - SOFT：软引用，移除基于垃圾回收器状态和软引用规则的对象
+   - WEAK：弱引用，更积极的移除移除基于垃圾回收器状态和弱引用规则的对象
+- flushInterval：刷新时间间隔，单位为毫秒，这里配置的100毫秒。如果不配置，那么只有在进行数据库修改操作才会被动刷新缓存区
+- size：引用额数目，代表缓存最多可以存储的对象个数
+- readOnly：是否只读，如果为true，则所有相同的sql语句返回的是同一个对象**（有助于提高性能，但并发操作同一条数据时，可能不安全）**，如果设置为false，则相同的sql，后面访问的是cache的clone副本。
+
+可以在Mapper的具体方法下设置对二级缓存的访问意愿：
+```java
+<select id="save" parameterType="XX" flushCache="true" useCache="false"> </select>
+```
+如果没有去配置flushCache、useCache，那么默认是启用缓存的
+
+- **flushCache**默认为false，表示任何时候语句被调用，都不会去清空本地缓存和二级缓存。
+- **useCache**默认为true，表示会将本条语句的结果进行二级缓存。
+- 在insert、update、delete语句时： flushCache默认为true，表示任何时候语句被调用，都会导致本地缓存和二级缓存被清空。** useCache属性在该情况下没有用**。update 的时候如果 flushCache="false"，**则当你更新后，查询的数据数据还是老的数据。**
+
+
+
