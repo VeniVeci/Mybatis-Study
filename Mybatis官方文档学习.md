@@ -358,7 +358,7 @@ SQL 映射文件只有很少的几个顶级元素（按照应被定义的顺序�
 注意参数符号：
 #{id}
 这就告诉 MyBatis 创建一个预处理语句（PreparedStatement）参数，在 JDBC 中，这样的一个参数在 SQL 中会由一个“?”来标识，并被传递到一个新的预处理语句中，就像这样： 
-// 近似的 JDBC 代码，非 MyBatis 代码... 
+// 近似的 JDBC 代码，非 MyBatis 代码... 
 ```java
 String selectPerson = "SELECT * FROM PERSON WHERE ID=?";
  PreparedStatement ps = conn.prepareStatement(selectPerson);
@@ -467,3 +467,188 @@ MyBatis中开启二级缓存及flushCache与useCache的使用
 
 
 
+## insert, update 和 delete
+```java
+<insert id="insertAuthor">
+  insert into Author (id,username,password,email,bio)
+  values (#{id},#{username},#{password},#{email},#{bio})
+</insert>
+
+<update id="updateAuthor">
+  update Author set
+    username = #{username},
+    password = #{password},
+    email = #{email},
+    bio = #{bio}
+  where id = #{id}
+</update>
+
+<delete id="deleteAuthor">
+  delete from Author where id = #{id}
+</delete>
+```
+如前所述，插入语句的配置规则更加丰富，在插入语句里面有一些额外的属性和子元素用来处理主键的生成，并且提供了多种生成方式。
+首先，如果你的数据库支持自动生成主键的字段（比如 MySQL 和 SQL Server），那么你可以设置 useGeneratedKeys=”true”，然后再把 keyProperty 设置为目标属性就 OK 了。例如，如果上面的 Author 表已经在 id 列上使用了自动生成，那么语句可以修改为：
+```java
+<insert id="insertAuthor" useGeneratedKeys="true"
+    keyProperty="id">
+  insert into Author (username,password,email,bio)
+  values (#{username},#{password},#{email},#{bio})
+</insert>
+```
+```java
+<insert id="insertAuthor" useGeneratedKeys="true"
+    keyProperty="id">
+  insert into Author (username, password, email, bio) values
+  <foreach item="item" collection="list" separator=",">
+    (#{item.username}, #{item.password}, #{item.email}, #{item.bio})
+  </foreach>
+</insert>
+```
+
+
+As an irregular case, some databases allow INSERT, UPDATE or DELETE statement to return result set **(e.g. RETURNING clause of PostgreSQL and MariaDB or OUTPUT clause of MS SQL Server). **This type of statement must be written as <select> to map the returned data. 
+```java
+<select id="insertAndGetAuthor" resultType="domain.blog.Author"
+       affectData="true" flushCache="true">
+   insert into Author (username, password, email, bio)
+   values (#{username}, #{password}, #{email}, #{bio})
+   returning id, username, password, email, bio
+ </select>
+```
+
+## 参数
+之前见到的所有语句都使用了简单的参数形式。但实际上，参数是 MyBatis 非常强大的元素。对于大多数简单的使用场景，你都不需要使用复杂的参数，比如： 
+```java
+<select id="selectUsers" resultType="User">
+   select id, username, password
+   from users
+   where id = #{id}
+ </select>
+```
+上面的这个示例说明了一个非常简单的命名参数映射。鉴于参数类型（parameterType）会被自动设置为 int，这个参数可以随意命名。原始类型或简单数据类型（比如 Integer 和 String）因为没有其它属性，会用它们的值来作为参数。 然而，如果传入一个复杂的对象，行为就会有点不一样了。比如： 
+```java
+<insert id="insertUser" parameterType="User">
+   insert into users (id, username, password)
+   values (#{id}, #{username}, #{password})
+ </insert>
+```
+如果 User 类型的参数对象传递到了语句中，会查找 id、username 和 password 属性，然后将它们的值传入预处理语句的参数中。 
+对传递语句参数来说，这种方式真是干脆利落。不过参数映射的功能远不止于此。 
+首先，和 MyBatis 的其它部分一样，参数也可以指定一个特殊的数据类型。 
+![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1680052942126-de83fe04-2f3e-451f-b548-5107f515847f.png#averageHue=%23f4f2f0&clientId=u849bc7e4-4c3c-4&from=paste&height=208&id=u1e32e1d3&name=image.png&originHeight=260&originWidth=1547&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=96149&status=done&style=none&taskId=u3296f084-819c-4df2-9a35-d939e9cf730&title=&width=1237.6)
+
+## 字符串替换 
+默认情况下，使用 #{} 参数语法时，MyBatis 会创建 PreparedStatement 参数占位符，并通过占位符安全地设置参数（就像使用 ? 一样）。 这样做更安全，更迅速，通常也是首选做法，不过有时你就是想直接在 SQL 语句中直接插入一个不转义的字符串。 比如 ORDER BY 子句，这时候你可以： 
+**ORDER BY ${columnName}**
+这样，MyBatis 就不会修改或转义该字符串了。
+当 SQL 语句中的元数据（如表名或列名）是动态生成的时候，字符串替换将会非常有用。 举个例子，如果你想 select 一个表任意一列的数据时，不需要这样写： 
+```java
+@Select("select * from user where id = #{id}")
+ User findById(@Param("id") long id);
+ 
+ @Select("select * from user where name = #{name}")
+ User findByName(@Param("name") String name);
+ 
+ @Select("select * from user where email = #{email}")
+ User findByEmail(@Param("email") String email);
+ 
+ // 其它的 "findByXxx" 方法
+```
+ 而是可以只写这样一个方法： 
+```java
+@Select("select * from user where ${column} = #{value}")
+ User findByColumn(@Param("column") String column, @Param("value") String value);
+```
+ 其中 ${column} 会被直接替换，而 #{value} 会使用 ? 预处理。 这样，就能完成同样的任务： 
+```java
+User userOfId1 = userMapper.findByColumn("id", 1L);
+ User userOfNameKid = userMapper.findByColumn("name", "kid");
+ User userOfEmail = userMapper.findByColumn("email", "noone@nowhere.com");
+```
+这种方式也同样适用于替换表名的情况。 
+提示 用这种方式接受用户的输入，并用作语句参数是不安全的，会导致潜在的 SQL 注入攻击。因此，要么不允许用户输入这些字段，要么自行转义并检验这些参数。 
+
+
+## 结果映射
+resultMap 元素是 MyBatis 中最重要最强大的元素。它可以让你从 90% 的 JDBC ResultSets 数据提取代码中解放出来，并在一些情形下允许你进行一些 JDBC 不支持的操作。实际上，在为一些比如连接的复杂语句编写映射代码的时候，一份 resultMap 能够代替实现同等功能的数千行代码。**ResultMap 的设计思想是，对简单的语句做到零配置，对于复杂一点的语句，只需要描述语句之间的关系就行了。** 
+之前你已经见过简单映射语句的示例，它们没有显式指定 resultMap。比如： 
+```java
+<select id="selectUsers" resultType="map">
+   select id, username, hashedPassword
+   from some_table
+   where id = #{id}
+ </select>
+```
+上述语句只是简单地将所有的列映射到 HashMap 的键上，这由 resultType 属性指定。虽然在大部分情况下都够用，但是 HashMap 并不是一个很好的领域模型。你的程序更可能会使用 JavaBean 或 POJO（Plain Old Java Objects，普通老式 Java 对象）作为领域模型。MyBatis 对两者都提供了支持。看看下面这个 JavaBean： 
+```java
+package com.someapp.model;
+ public class User {
+   private int id;
+   private String username;
+   private String hashedPassword;
+ 
+   public int getId() {
+     return id;
+   }
+   public void setId(int id) {
+     this.id = id;
+   }
+   public String getUsername() {
+     return username;
+   }
+   public void setUsername(String username) {
+     this.username = username;
+   }
+   public String getHashedPassword() {
+     return hashedPassword;
+   }
+   public void setHashedPassword(String hashedPassword) {
+     this.hashedPassword = hashedPassword;
+   }
+ }
+```
+基于 JavaBean 的规范，上面这个类有 3 个属性：id，username 和 hashedPassword。这些属性会对应到 select 语句中的列名。 
+这样的一个 JavaBean 可以被映射到 ResultSet，就像映射到 HashMap 一样简单。 
+```java
+<select id="selectUsers" resultType="com.someapp.model.User">
+   select id, username, hashedPassword
+   from some_table
+   where id = #{id}
+ </select>
+```
+
+在这些情况下，MyBatis 会在幕后自动创建一个 ResultMap，再根据属性名来映射列到 JavaBean 的属性上。如果列名和属性名不能匹配上，可以在 SELECT 语句中设置列别名（这是一个基本的 SQL 特性）来完成匹配。比如： 
+```java
+<select id="selectUsers" resultType="User">
+   select
+     user_id             as "id",
+     user_name           as "userName",
+     hashed_password     as "hashedPassword"
+   from some_table
+   where id = #{id}
+ </select>
+```
+在学习了上面的知识后，你会发现上面的例子没有一个需要显式配置 ResultMap，这就是 ResultMap 的优秀之处——你完全可以不用显式地配置它们。 虽然上面的例子不用显式配置 ResultMap。 但为了讲解，我们来看看如果在刚刚的示例中，显式使用外部的 resultMap 会怎样，这也是解决列名不匹配的另外一种方式。 
+```java
+<resultMap id="userResultMap" type="User">
+   <id property="id" column="user_id" />
+   <result property="username" column="user_name"/>
+   <result property="password" column="hashed_password"/>
+ </resultMap>
+```
+然后在引用它的语句中设置 resultMap 属性就行了（注意我们去掉了 resultType 属性）。比如: 
+```java
+<select id="selectUsers" resultMap="userResultMap">
+   select user_id, user_name, hashed_password
+   from some_table
+   where id = #{id}
+ </select>
+```
+如果这个世界总是这么简单就好了。 
+
+
+
+## 高级结果映射
+MyBatis 创建时的一个思想是：数据库不可能永远是你所想或所需的那个样子。 我们希望每个数据库都具备良好的第三范式或 BCNF 范式，可惜它们并不都是那样。 如果能有一种数据库映射模式，完美适配所有的应用程序，那就太好了，但可惜也没有。 而 ResultMap 就是 MyBatis 对这个问题的答案。 
+比如，我们如何映射下面这个语句？ 
