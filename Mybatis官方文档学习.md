@@ -650,5 +650,21 @@ package com.someapp.model;
 
 
 ## 高级结果映射
-MyBatis 创建时的一个思想是：数据库不可能永远是你所想或所需的那个样子。 我们希望每个数据库都具备良好的第三范式或 BCNF 范式，可惜它们并不都是那样。 如果能有一种数据库映射模式，完美适配所有的应用程序，那就太好了，但可惜也没有。 而 ResultMap 就是 MyBatis 对这个问题的答案。 
+MyBatis 创建时的一个思想是：数据库不可能永远是你所想或所需的那个样子。 我们希望每个数据库都具备良好的第三范式或 BCNF 范式，可**惜它们并不都是那样。 如果能有一种数据库映射模式，完美适配所有的应用程序，那就太好了，但可惜也没有**。 而 ResultMap 就是 MyBatis 对这个问题的答案。 
 比如，我们如何映射下面这个语句？ 
+
+#### id & result
+<id property="id" column="post_id"/> <result property="subject" column="post_subject"/>
+这些元素是结果映射的基础。_id_ 和 _result_ 元素都将一个列的值映射到一个简单数据类型（String, int, double, Date 等）的属性或字段。 
+这两者之间的唯一不同是，_id_ 元素对应的属性会被标记为对象的标识符，在比较对象实例时使用。 这样可以提高整体的性能，尤其是进行缓存和嵌套结果映射（也就是连接映射）的时候。 
+两个元素都有一些属性： 
+![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1680103092760-027f9cba-b788-498b-a7df-27be3b3bd0c1.png#averageHue=%23f1f0ee&clientId=u80a1aa13-9cf8-4&from=paste&height=539&id=u0dcb05d8&name=image.png&originHeight=674&originWidth=1588&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=253904&status=done&style=none&taskId=uf90e5e5e-32a5-4f06-9226-caa7a612426&title=&width=1270.4)
+
+
+
+
+
+# 动态 SQL
+动态 SQL 是 MyBatis 的强大特性之一。如果你使用过 JDBC 或其它类似的框架，你应该能理解根据不同条件拼接 SQL 语句有多痛苦，例如拼接时要确保不能忘记添加必要的空格，还要注意去掉列表最后一个列名的逗号。利用动态 SQL，可以彻底摆脱这种痛苦。
+使用动态 SQL 并非一件易事，但借助可用于任何 SQL 映射语句中的强大的动态 SQL 语言，MyBatis 显著地提升了这一特性的易用性。
+
