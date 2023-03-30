@@ -48,7 +48,7 @@ public class UserDaoTest {
 
     @Test
     public void test3(){
-//        DataSource dataSource = BlogDataSourceFactory.getBlogDataSource();
+//        DataSource dataSource = BaseDataTest.createBlogDataSource();
 //        TransactionFactory transactionFactory = new JdbcTransactionFactory();
 //        Environment environment = new Environment("development", transactionFactory, dataSource);
 //        Configuration configuration = new Configuration(environment);
