@@ -9,7 +9,7 @@
     </appender>
 
     <logger name="com.kuang.dao.UserMapper">
-<!--        <level value="trace"/>-->
+<!--        <level value="trace"/>-->  <!--某些查询可能会返回庞大的结果集-->
         <level value="debug"/>
     </logger>
     <root level="error">

@@ -668,12 +668,8 @@ MyBatis 创建时的一个思想是：数据库不可能永远是你所想或所
 动态 SQL 是 MyBatis 的强大特性之一。如果你使用过 JDBC 或其它类似的框架，你应该能理解根据不同条件拼接 SQL 语句有多痛苦，例如拼接时要确保不能忘记添加必要的空格，还要注意去掉列表最后一个列名的逗号。利用动态 SQL，可以彻底摆脱这种痛苦。
 使用动态 SQL 并非一件易事，但借助可用于任何 SQL 映射语句中的强大的动态 SQL 语言，MyBatis 显著地提升了这一特性的易用性。
 
-
-
 ## if where
-
 ### select
-
 ```java
 <select id="findActiveBlogLike"
      resultType="Blog">
@@ -692,10 +688,7 @@ MyBatis 创建时的一个思想是：数据库不可能永远是你所想或所
 </select>
 ```
 
-
-
 ### update
-
 ```java
 <update id="updateAuthorIfNecessary">
   update Author
@@ -708,61 +701,57 @@ MyBatis 创建时的一个思想是：数据库不可能永远是你所想或所
   where id=#{id}
 </update>
 ```
-
 ### foreach
-
-```sql
+```java
 <select id="selectPostIn" resultType="domain.blog.Post">
-  SELECT *
-  FROM POST P
-  <where>
+    SELECT *
+    FROM POST P
+    <where>
     <foreach item="item" index="index" collection="list"
-        open="ID in (" separator="," close=")" nullable="true">
-          #{item}
-    </foreach>
-  </where>
-</select>
+    open="ID in (" separator="," close=")" nullable="true">
+    #{item}
+</foreach>
+    </where>
+    </select>
 ```
-
-*foreach* 元素的功能非常强大，它允许你指定一个集合，声明可以在元素体内使用的集合项（item）和索引（index）变量。它也允许你指定开头与结尾的字符串以及集合项迭代之间的分隔符。这个元素也不会错误地添加多余的分隔符，看它多智能！
-
-提示 你可以将任何可迭代对象（如 List、Set 等）、Map 对象或者数组对象作为集合参数传递给 *foreach*。当使用可迭代对象或者数组时，index 是当前迭代的序号，item 的值是本次迭代获取到的元素。当使用 Map 对象（或者 Map.Entry 对象的集合）时，index 是键，item 是值
-
-
-
-
-
-
-
+_foreach_ 元素的功能非常强大，它允许你指定一个集合，声明可以在元素体内使用的集合项（item）和索引（index）变量。它也允许你指定开头与结尾的字符串以及集合项迭代之间的分隔符。这个元素也不会错误地添加多余的分隔符，看它多智能！
+提示 你可以将任何可迭代对象（如 List、Set 等）、Map 对象或者数组对象作为集合参数传递给 _foreach_。当使用可迭代对象或者数组时，index 是当前迭代的序号，item 的值是本次迭代获取到的元素。当使用 Map 对象（或者 Map.Entry 对象的集合）时，index 是键，item 是值
 # Java API
-
  既然你已经知道如何配置 MyBatis 以及如何创建映射，**是时候来尝点甜头了**。MyBatis 的 Java API 就是这个甜头。稍后你将看到，和 JDBC 相比，MyBatis 大幅简化你的代码并力图保持其简洁、容易理解和维护。为了使得 SQL 映射更加优秀，MyBatis 3 引入了许多重要的改进。  
-
-
 
  当 Mybatis 与一些依赖注入框架（如 Spring 或者 Guice）搭配使用时，**SqlSession 将被依赖注入框架创建并注入，所以你不需要使用 SqlSessionFactoryBuilder 或者** **SqlSessionFactory**，可以直接阅读 SqlSession 这一节。请参考 Mybatis-Spring 或者 Mybatis-Guice 手册以了解更多信息。  
 
-
-
  最后一个 build 方法接受一个 Configuration 实例。Configuration 类包含了对一个 SqlSessionFactory 实例你可能关心的所有内容。在检查配置时，Configuration 类很有用，它允许你查找和操纵 SQL 映射（但当应用开始接收请求时不推荐使用）。你之前学习过的所有配置开关都存在于 Configuration 类，只不过它们是以 Java API 形式暴露的。以下是一个简单的示例，演示如何手动配置 Configuration 实例，然后将它传递给 build() 方法来创建 SqlSessionFactory。  
 
+# SQL 语句构建器
+SQL Builder
+## 解决的问题是
+ Java 程序员面对的最痛苦的事情之一就是在 Java 代码中嵌入 SQL 语句。这通常是因为需要动态生成 SQL 语句，不然我们可以将它们放到外部文件或者存储过程中。如你所见，MyBatis 在 XML 映射中具备强大的 SQL 动态生成能力。**但有时，我们还是需要在 Java 代码里构建 SQL 语句。**此时，MyBatis 有另外一个特性可以帮到你，让你从处理典型问题中解放出来，比如加号、引号、换行、格式化问题、嵌入条件的逗号管理及 AND 连接。  
 
+总不能这样写把太不方便了
+```java
+String sql = "SELECT P.ID, P.USERNAME, P.PASSWORD, P.FULL_NAME, "
+"P.LAST_NAME,P.CREATED_ON, P.UPDATED_ON " +
+"FROM PERSON P, ACCOUNT A " +
+"INNER JOIN DEPARTMENT D on D.ID = P.DEPARTMENT_ID " +
+"INNER JOIN COMPANY C on D.COMPANY_ID = C.ID " +
+"WHERE (P.ID = A.ID AND P.FIRST_NAME like ?) " +
+"OR (P.LAST_NAME like ?) " +
+"GROUP BY P.ID " +
+"HAVING (P.LAST_NAME like ?) " +
+"OR (P.FIRST_NAME like ?) " +
+"ORDER BY P.ID, P.FULL_NAME";
+
+```
 
 
 
 # 日志
-
 日志的作用：
-
 在打印台输出 sql语句
-
 输出每一步执行了什么东西
-
 把记录写入到 log当中 作为记录
-
-![img](https://cdn.nlark.com/yuque/0/2023/png/614525/1680267541467-69c3d231-a7c3-4e2b-9d32-a818560ba8ff.png)
-
-
+![image.png](https://cdn.nlark.com/yuque/0/2023/png/614525/1680267541467-69c3d231-a7c3-4e2b-9d32-a818560ba8ff.png#averageHue=%23f7f5f3&clientId=u03ed8c40-b64b-4&from=paste&height=375&id=uf210a813&name=image.png&originHeight=469&originWidth=1670&originalType=binary&ratio=1.25&rotation=0&showTitle=false&size=59255&status=done&style=none&taskId=ub507036e-53af-4ad1-8811-7c89a76c9da&title=&width=1336)
 
 Mybatis 通过使用内置的日志工厂提供日志功能。内置日志工厂将会把日志工作委托给下面的实现之一：
 
@@ -773,10 +762,7 @@ Mybatis 通过使用内置的日志工厂提供日志功能。内置日志工厂
 -  JDK logging 
 
 MyBatis 内置日志工厂基于运行时自省机制选择合适的日志工具。它会使用第一个查找得到的工具（按上文列举的顺序查找）。如果一个都未找到，日志功能就会被禁用。
-
 不少应用服务器（如 Tomcat 和 WebShpere）的类路径中已经包含 Commons Logging，所以在这种配置环境下的 MyBatis 会把它作为日志工具，记住这点非常重要。这将意味着，在诸如 WebSphere 的环境中，它提供了 Commons Logging 的私有实现，你的 Log4J 配置将被忽略。MyBatis 将你的 Log4J 配置忽略掉是相当令人郁闷的（事实上，正是因为在这种配置环境下，MyBatis 才会选择使用 Commons Logging 而不是 Log4J）。如果你的应用部署在一个类路径已经包含 Commons Logging 的环境中，而你又想使用其它日志工具，你可以通过在 MyBatis 配置文件 mybatis-config.xml 里面添加一项 setting 来选择别的日志工具。
-
-
 
 ```java
 <configuration>
@@ -787,3 +773,7 @@ MyBatis 内置日志工厂基于运行时自省机制选择合适的日志工具
   </settings>
 </configuration>
 ```
+
+# 
+
+
